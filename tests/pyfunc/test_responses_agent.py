@@ -1501,8 +1501,8 @@ def test_responses_agent_default_attribute():
         def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
             return ResponsesAgentResponse(**get_mock_response(request))
 
-    assert isinstance(NoAttributeAgent.attribute, AgentInfo)
-    assert NoAttributeAgent.attribute.name == "NoAttributeAgent"
+    assert isinstance(NoAttributeAgent.agent_info, AgentInfo)
+    assert NoAttributeAgent.agent_info.name == "NoAttributeAgent"
 
 
 def test_responses_agent_custom_attribute():
@@ -1510,7 +1510,7 @@ def test_responses_agent_custom_attribute():
     from mlflow.types.agent_attribute import AgentInfo
 
     class CustomAgent(ResponsesAgent):
-        attribute = AgentInfo(
+        agent_info = AgentInfo(
             name="custom-agent",
             description="A custom test agent",
             version="1.0",
@@ -1521,11 +1521,11 @@ def test_responses_agent_custom_attribute():
         def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
             return ResponsesAgentResponse(**get_mock_response(request))
 
-    assert CustomAgent.attribute.name == "custom-agent"
-    assert CustomAgent.attribute.description == "A custom test agent"
-    assert CustomAgent.attribute.version == "1.0"
-    assert CustomAgent.attribute.metadata == {"custom_inputs_schema": {"type": "object"}}
-    assert CustomAgent.attribute.tags == {"team": "ml"}
+    assert CustomAgent.agent_info.name == "custom-agent"
+    assert CustomAgent.agent_info.description == "A custom test agent"
+    assert CustomAgent.agent_info.version == "1.0"
+    assert CustomAgent.agent_info.metadata == {"custom_inputs_schema": {"type": "object"}}
+    assert CustomAgent.agent_info.tags == {"team": "ml"}
 
 
 def test_responses_agent_attribute_name_defaults_to_class_name():
@@ -1533,10 +1533,10 @@ def test_responses_agent_attribute_name_defaults_to_class_name():
     from mlflow.types.agent_attribute import AgentInfo
 
     class NamelessAgent(ResponsesAgent):
-        attribute = AgentInfo(description="An agent without a name")
+        agent_info = AgentInfo(description="An agent without a name")
 
         def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
             return ResponsesAgentResponse(**get_mock_response(request))
 
-    assert NamelessAgent.attribute.name == "NamelessAgent"
-    assert NamelessAgent.attribute.description == "An agent without a name"
+    assert NamelessAgent.agent_info.name == "NamelessAgent"
+    assert NamelessAgent.agent_info.description == "An agent without a name"

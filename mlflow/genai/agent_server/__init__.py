@@ -1,6 +1,6 @@
 from mlflow.genai.agent_server.server import (
     AgentServer,
-    attribute,
+    info,
     get_agent_info,
     get_invoke_function,
     get_stream_function,
@@ -18,7 +18,7 @@ __all__ = [
     "set_request_headers",
     "get_request_headers",
     "AgentServer",
-    "attribute",
+    "info",
     "invoke",
     "stream",
     "get_invoke_function",

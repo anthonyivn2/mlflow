@@ -45,28 +45,28 @@ def get_agent_info() -> AgentInfo | None:
     return _agent_info
 
 
-def set_agent_info(attribute: AgentInfo) -> None:
+def set_agent_info(agent_info: AgentInfo) -> None:
     global _agent_info
-    _agent_info = attribute
+    _agent_info = agent_info
 
 
-def attribute() -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-    """Decorator to register a function that returns the agent's attribute.
+def info() -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    """Decorator to register a function that returns the agent's info.
 
     The decorated function is called once at registration time and its return
-    value is stored as the agent attribute. Can only be used once.
+    value is stored as the agent info. Can only be used once.
 
     Example::
 
-        @attribute()
+        @info()
         def get_attribute():
-            return agent.attribute
+            return agent.agent_info
     """
 
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         global _agent_info
         if _agent_info is not None:
-            raise ValueError("attribute decorator can only be used once")
+            raise ValueError("info decorator can only be used once")
         _agent_info = func()
 
         @functools.wraps(func)

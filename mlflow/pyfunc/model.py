@@ -851,7 +851,7 @@ class ResponsesAgent(PythonModel, metaclass=ABCMeta):
     See https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro for more details.
     """
 
-    attribute: ClassVar[AgentInfo | None] = None
+    agent_info: ClassVar[AgentInfo | None] = None
 
     _skip_type_hint_validation = True
 
@@ -865,10 +865,10 @@ class ResponsesAgent(PythonModel, metaclass=ABCMeta):
         super().__init_subclass__(**kwargs)
 
         # Detect or create default AgentInfo
-        if not hasattr(cls, "attribute") or cls.attribute is None:
-            cls.attribute = AgentInfo(name=cls.__name__)
-        elif getattr(cls.attribute, "name", None) is None:
-            cls.attribute.name = cls.__name__
+        if not hasattr(cls, "agent_info") or cls.agent_info is None:
+            cls.agent_info = AgentInfo(name=cls.__name__)
+        elif getattr(cls.agent_info, "name", None) is None:
+            cls.agent_info.name = cls.__name__
 
         for attr_name in ("predict", "predict_stream"):
             attr = cls.__dict__.get(attr_name)

@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 
 from mlflow.genai.agent_server import (
     AgentServer,
-    attribute,
+    info,
     get_agent_info,
     get_invoke_function,
     get_request_headers,
@@ -1421,8 +1421,8 @@ def test_agent_info_returns_default_server_info_when_responses_agent_has_no_expl
         def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
             return ResponsesAgentResponse(output=[])
 
-    assert NoExplicitInfoAgent.attribute is not None
-    assert NoExplicitInfoAgent.attribute.name == "NoExplicitInfoAgent"
+    assert NoExplicitInfoAgent.agent_info is not None
+    assert NoExplicitInfoAgent.agent_info.name == "NoExplicitInfoAgent"
 
     server = AgentServer("ResponsesAgent")
     client = TestClient(server.app)
@@ -1478,10 +1478,10 @@ def test_set_and_get_agent_info():
     assert get_agent_info() is attr
 
 
-def test_attribute_decorator_registers():
+def test_info_decorator_registers():
     from mlflow.types.agent_attribute import AgentInfo
 
-    @attribute()
+    @info()
     def get_attr():
         return AgentInfo(name="decorated-agent", version="2.0")
 
@@ -1490,10 +1490,10 @@ def test_attribute_decorator_registers():
     assert result.version == "2.0"
 
 
-def test_attribute_decorator_called_once_at_registration():
+def test_info_decorator_called_once_at_registration():
     call_count = 0
 
-    @attribute()
+    @info()
     def get_attr():
         nonlocal call_count
         call_count += 1
@@ -1508,21 +1508,21 @@ def test_attribute_decorator_called_once_at_registration():
     assert get_agent_info() == {"name": "counter-agent"}
 
 
-def test_attribute_decorator_duplicate_raises():
+def test_info_decorator_duplicate_raises():
     from mlflow.types.agent_attribute import AgentInfo
 
-    @attribute()
+    @info()
     def get_attr():
         return AgentInfo(name="first")
 
-    with pytest.raises(ValueError, match="attribute decorator can only be used once"):
+    with pytest.raises(ValueError, match="info decorator can only be used once"):
 
-        @attribute()
+        @info()
         def get_attr_again():
             return AgentInfo(name="second")
 
 
-def test_attribute_decorator_with_responses_agent():
+def test_info_decorator_with_responses_agent():
     from mlflow.pyfunc.model import ResponsesAgent
     from mlflow.types.agent_attribute import AgentInfo
     from mlflow.types.responses import (
@@ -1531,7 +1531,7 @@ def test_attribute_decorator_with_responses_agent():
     )
 
     class MyAgent(ResponsesAgent):
-        attribute = AgentInfo(
+        agent_info = AgentInfo(
             name="my-test-agent",
             description="A test agent",
         )
@@ -1543,19 +1543,19 @@ def test_attribute_decorator_with_responses_agent():
 
     agent = MyAgent()
 
-    @attribute()
+    @info()
     def get_attr():
-        return agent.attribute
+        return agent.agent_info
 
     result = get_agent_info()
     assert result.name == "my-test-agent"
     assert result.description == "A test agent"
 
 
-def test_attribute_decorator_agent_info_integration():
+def test_info_decorator_agent_info_integration():
     from mlflow.types.agent_attribute import AgentInfo
 
-    @attribute()
+    @info()
     def get_attr():
         return AgentInfo(
             name="endpoint-agent",
