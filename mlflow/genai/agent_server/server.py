@@ -17,7 +17,7 @@ from mlflow.genai.agent_server.utils import get_request_headers, set_request_hea
 from mlflow.genai.agent_server.validator import BaseAgentValidator, ResponsesAgentValidator
 from mlflow.pyfunc import ResponsesAgent
 from mlflow.tracing.constant import SpanAttributeKey
-from mlflow.types.agent_attribute import AgentAttribute
+from mlflow.types.agent_attribute import AgentInfo
 
 logger = logging.getLogger(__name__)
 STREAM_KEY = "stream"
@@ -30,7 +30,7 @@ _R = TypeVar("_R")
 
 _invoke_function: Callable[..., Any] | None = None
 _stream_function: Callable[..., Any] | None = None
-_agent_attribute: AgentAttribute | None = None
+_agent_info: AgentInfo | None = None
 
 
 def get_invoke_function():
@@ -41,13 +41,13 @@ def get_stream_function():
     return _stream_function
 
 
-def get_agent_attribute() -> AgentAttribute | None:
-    return _agent_attribute
+def get_agent_info() -> AgentInfo | None:
+    return _agent_info
 
 
-def set_agent_attribute(attribute: AgentAttribute) -> None:
-    global _agent_attribute
-    _agent_attribute = attribute
+def set_agent_info(attribute: AgentInfo) -> None:
+    global _agent_info
+    _agent_info = attribute
 
 
 def attribute() -> Callable[[Callable[..., Any]], Callable[..., Any]]:
@@ -64,10 +64,10 @@ def attribute() -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """
 
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-        global _agent_attribute
-        if _agent_attribute is not None:
+        global _agent_info
+        if _agent_info is not None:
             raise ValueError("attribute decorator can only be used once")
-        _agent_attribute = func()
+        _agent_info = func()
 
         @functools.wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
@@ -281,12 +281,6 @@ class AgentServer:
                 """
                 return await self._handle_invocations_request(request)
 
-        @self.app.get("/agent/attribute")
-        async def agent_attributes_endpoint() -> dict[str, Any]:
-            if _agent_attribute is None:
-                return {}
-            return _agent_attribute.to_dict()
-
         @self.app.get("/agent/info")
         async def agent_info_endpoint() -> dict[str, Any]:
             # Get app name from environment or use default
@@ -302,6 +296,9 @@ class AgentServer:
             # Conditionally add agent_api field for ResponsesAgent only
             if self.agent_type == "ResponsesAgent":
                 info["agent_api"] = "responses"
+
+            if _agent_info is not None:
+                info.update(_agent_info.to_dict())
 
             return info
 

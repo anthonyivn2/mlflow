@@ -3,7 +3,7 @@ The :py:mod:`mlflow.types` module defines data types and utilities to be used by
 components to describe interface independent of other frameworks or languages.
 """
 
-from mlflow.types.agent_attribute import AgentAttribute
+from mlflow.types.agent_attribute import AgentInfo
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 if not IS_TRACING_SDK_ONLY:
@@ -29,7 +29,7 @@ if not IS_TRACING_SDK_ONLY:
         )
 
         __all__ = [
-            "AgentAttribute",
+            "AgentInfo",
             "Schema",
             "ColSpec",
             "DataType",

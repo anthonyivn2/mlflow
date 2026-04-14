@@ -9,12 +9,12 @@ from fastapi.testclient import TestClient
 from mlflow.genai.agent_server import (
     AgentServer,
     attribute,
-    get_agent_attribute,
+    get_agent_info,
     get_invoke_function,
     get_request_headers,
     get_stream_function,
     invoke,
-    set_agent_attribute,
+    set_agent_info,
     set_request_headers,
     stream,
 )
@@ -33,7 +33,7 @@ def reset_global_state():
 
     mlflow.genai.agent_server.server._invoke_function = None
     mlflow.genai.agent_server.server._stream_function = None
-    mlflow.genai.agent_server.server._agent_attribute = None
+    mlflow.genai.agent_server.server._agent_info = None
 
 
 async def responses_invoke(request: ResponsesAgentRequest) -> ResponsesAgentResponse:
@@ -1328,100 +1328,164 @@ def test_return_trace_header_case_insensitive(header_value):
         mock_span.assert_called_once()
 
 
-# --- AgentAttribute endpoint tests ---
+# --- Agent info / attribute tests ---
 
 
-def test_agent_attributes_endpoint():
-    from mlflow.types.agent_attribute import AgentAttribute
+def test_agent_info_includes_attribute_metadata():
+    from mlflow.types.agent_attribute import AgentInfo
 
-    set_agent_attribute(
-        AgentAttribute(
+    set_agent_info(
+        AgentInfo(
             name="test-agent",
+            use_case="assistant",
+            mlflow_version="custom-version",
+            agent_api="custom-api",
             description="A test agent",
             version="1.0",
+            metadata={"team_config": {"owner": "ml"}},
             tags={"team": "ml"},
         )
     )
     server = AgentServer("ResponsesAgent")
     client = TestClient(server.app)
 
-    response = client.get("/agent/attribute")
+    response = client.get("/agent/info")
     assert response.status_code == 200
     data = response.json()
     assert data["name"] == "test-agent"
+    assert data["use_case"] == "assistant"
+    assert data["mlflow_version"] == "custom-version"
+    assert data["agent_api"] == "custom-api"
     assert data["description"] == "A test agent"
     assert data["version"] == "1.0"
+    assert data["metadata"] == {"team_config": {"owner": "ml"}}
     assert data["tags"] == {"team": "ml"}
-    assert "custom_inputs_schema" not in data
-    assert "custom_outputs_schema" not in data
 
 
-def test_agent_attributes_endpoint_available_without_responses_agent():
-    from mlflow.types.agent_attribute import AgentAttribute
+def test_agent_info_includes_attribute_without_responses_agent():
+    from mlflow.types.agent_attribute import AgentInfo
 
-    set_agent_attribute(AgentAttribute(name="generic-agent"))
+    set_agent_info(AgentInfo(name="generic-agent"))
     server = AgentServer()
     client = TestClient(server.app)
 
-    response = client.get("/agent/attribute")
+    response = client.get("/agent/info")
     assert response.status_code == 200
     assert response.json()["name"] == "generic-agent"
 
 
-def test_agent_attributes_endpoint_with_pydantic_schema():
+def test_agent_info_includes_pydantic_schema_metadata():
     from pydantic import BaseModel
 
-    from mlflow.types.agent_attribute import AgentAttribute
+    from mlflow.types.agent_attribute import AgentInfo
 
     class MyInputs(BaseModel):
         query: str
         temperature: float = 0.7
 
-    set_agent_attribute(
-        AgentAttribute(
+    set_agent_info(
+        AgentInfo(
             name="schema-agent",
-            custom_inputs_schema=MyInputs,
+            metadata={"custom_inputs_schema": MyInputs},
         )
     )
     server = AgentServer("ResponsesAgent")
     client = TestClient(server.app)
 
-    response = client.get("/agent/attribute")
+    response = client.get("/agent/info")
     assert response.status_code == 200
     data = response.json()
     assert data["name"] == "schema-agent"
-    schema = data["custom_inputs_schema"]
+    schema = data["metadata"]["custom_inputs_schema"]
     assert "properties" in schema
     assert "query" in schema["properties"]
     assert "temperature" in schema["properties"]
 
 
-def test_agent_attributes_endpoint_empty_when_no_attribute():
+def test_agent_info_omits_attribute_when_no_attribute_registered():
     server = AgentServer("ResponsesAgent")
     client = TestClient(server.app)
 
-    response = client.get("/agent/attribute")
+    response = client.get("/agent/info")
     assert response.status_code == 200
-    assert response.json() == {}
+    assert "metadata" not in response.json()
 
 
-def test_set_and_get_agent_attribute():
-    from mlflow.types.agent_attribute import AgentAttribute
+def test_agent_info_returns_default_server_info_when_responses_agent_has_no_explicit_info():
+    import mlflow
 
-    assert get_agent_attribute() is None
-    attr = AgentAttribute(name="my-agent")
-    set_agent_attribute(attr)
-    assert get_agent_attribute() is attr
+    from mlflow.pyfunc.model import ResponsesAgent
+    from mlflow.types.responses import ResponsesAgentRequest, ResponsesAgentResponse
+
+    class NoExplicitInfoAgent(ResponsesAgent):
+        def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
+            return ResponsesAgentResponse(output=[])
+
+    assert NoExplicitInfoAgent.attribute is not None
+    assert NoExplicitInfoAgent.attribute.name == "NoExplicitInfoAgent"
+
+    server = AgentServer("ResponsesAgent")
+    client = TestClient(server.app)
+
+    response = client.get("/agent/info")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["name"] == "mlflow_agent_server"
+    assert data["use_case"] == "agent"
+    assert data["mlflow_version"] == mlflow.__version__
+    assert data["agent_api"] == "responses"
+    assert "description" not in data
+    assert "version" not in data
+    assert "metadata" not in data
+    assert "tags" not in data
+
+
+def test_agent_info_registered_values_override_server_defaults():
+    from mlflow.types.agent_attribute import AgentInfo
+
+    set_agent_info(
+        AgentInfo(
+            name="user-defined-name",
+            use_case="custom-use-case",
+            mlflow_version="1.2.3-custom",
+            agent_api="custom-api",
+            version="1.2.3",
+            metadata={"extra": True},
+            tags={"team": "ml"},
+        )
+    )
+    server = AgentServer("ResponsesAgent")
+    client = TestClient(server.app)
+
+    response = client.get("/agent/info")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["name"] == "user-defined-name"
+    assert data["use_case"] == "custom-use-case"
+    assert data["mlflow_version"] == "1.2.3-custom"
+    assert data["agent_api"] == "custom-api"
+    assert data["version"] == "1.2.3"
+    assert data["metadata"] == {"extra": True}
+    assert data["tags"] == {"team": "ml"}
+
+
+def test_set_and_get_agent_info():
+    from mlflow.types.agent_attribute import AgentInfo
+
+    assert get_agent_info() is None
+    attr = AgentInfo(name="my-agent")
+    set_agent_info(attr)
+    assert get_agent_info() is attr
 
 
 def test_attribute_decorator_registers():
-    from mlflow.types.agent_attribute import AgentAttribute
+    from mlflow.types.agent_attribute import AgentInfo
 
     @attribute()
     def get_attr():
-        return AgentAttribute(name="decorated-agent", version="2.0")
+        return AgentInfo(name="decorated-agent", version="2.0")
 
-    result = get_agent_attribute()
+    result = get_agent_info()
     assert result.name == "decorated-agent"
     assert result.version == "2.0"
 
@@ -1440,34 +1504,34 @@ def test_attribute_decorator_called_once_at_registration():
     # Calling the wrapper again doesn't re-register
     get_attr()
     assert call_count == 2
-    # But _agent_attribute is still the first result
-    assert get_agent_attribute() == {"name": "counter-agent"}
+    # But _agent_info is still the first result
+    assert get_agent_info() == {"name": "counter-agent"}
 
 
 def test_attribute_decorator_duplicate_raises():
-    from mlflow.types.agent_attribute import AgentAttribute
+    from mlflow.types.agent_attribute import AgentInfo
 
     @attribute()
     def get_attr():
-        return AgentAttribute(name="first")
+        return AgentInfo(name="first")
 
     with pytest.raises(ValueError, match="attribute decorator can only be used once"):
 
         @attribute()
         def get_attr_again():
-            return AgentAttribute(name="second")
+            return AgentInfo(name="second")
 
 
 def test_attribute_decorator_with_responses_agent():
     from mlflow.pyfunc.model import ResponsesAgent
-    from mlflow.types.agent_attribute import AgentAttribute
+    from mlflow.types.agent_attribute import AgentInfo
     from mlflow.types.responses import (
         ResponsesAgentRequest,
         ResponsesAgentResponse,
     )
 
     class MyAgent(ResponsesAgent):
-        attribute = AgentAttribute(
+        attribute = AgentInfo(
             name="my-test-agent",
             description="A test agent",
         )
@@ -1483,17 +1547,17 @@ def test_attribute_decorator_with_responses_agent():
     def get_attr():
         return agent.attribute
 
-    result = get_agent_attribute()
+    result = get_agent_info()
     assert result.name == "my-test-agent"
     assert result.description == "A test agent"
 
 
-def test_attribute_decorator_endpoint_integration():
-    from mlflow.types.agent_attribute import AgentAttribute
+def test_attribute_decorator_agent_info_integration():
+    from mlflow.types.agent_attribute import AgentInfo
 
     @attribute()
     def get_attr():
-        return AgentAttribute(
+        return AgentInfo(
             name="endpoint-agent",
             description="Registered via decorator",
         )
@@ -1501,7 +1565,7 @@ def test_attribute_decorator_endpoint_integration():
     server = AgentServer("ResponsesAgent")
     client = TestClient(server.app)
 
-    response = client.get("/agent/attribute")
+    response = client.get("/agent/info")
     assert response.status_code == 200
     data = response.json()
     assert data["name"] == "endpoint-agent"

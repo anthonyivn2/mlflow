@@ -1,7 +1,7 @@
 import pytest
 from pydantic import BaseModel
 
-from mlflow.types.agent_attribute import AgentAttribute, _normalize_schema
+from mlflow.types.agent_attribute import AgentInfo, _normalize_schema
 
 
 class SampleInputs(BaseModel):
@@ -15,47 +15,52 @@ class SampleOutputs(BaseModel):
 
 
 def test_default_fields_are_none():
-    attr = AgentAttribute()
+    attr = AgentInfo()
     assert attr.name is None
     assert attr.description is None
     assert attr.version is None
-    assert attr.custom_inputs_schema is None
-    assert attr.custom_outputs_schema is None
+    assert attr.metadata is None
     assert attr.tags is None
 
 
 def test_to_dict_with_all_fields():
-    attr = AgentAttribute(
+    attr = AgentInfo(
         name="planner",
         description="Plans multi-step tasks",
         version="1.0",
-        custom_inputs_schema={"type": "object", "properties": {"x": {"type": "string"}}},
-        custom_outputs_schema={"type": "object", "properties": {"y": {"type": "number"}}},
+        metadata={
+            "custom_inputs_schema": {"type": "object", "properties": {"x": {"type": "string"}}},
+            "custom_outputs_schema": {
+                "type": "object",
+                "properties": {"y": {"type": "number"}},
+            },
+            "team_config": {"routing": "planner"},
+        },
         tags={"team": "ml", "env": "prod"},
     )
     result = attr.to_dict()
     assert result["name"] == "planner"
     assert result["description"] == "Plans multi-step tasks"
     assert result["version"] == "1.0"
-    assert result["custom_inputs_schema"] == {
+    assert result["metadata"]["custom_inputs_schema"] == {
         "type": "object",
         "properties": {"x": {"type": "string"}},
     }
-    assert result["custom_outputs_schema"] == {
+    assert result["metadata"]["custom_outputs_schema"] == {
         "type": "object",
         "properties": {"y": {"type": "number"}},
     }
+    assert result["metadata"]["team_config"] == {"routing": "planner"}
     assert result["tags"] == {"team": "ml", "env": "prod"}
 
 
 def test_to_dict_omits_none():
-    attr = AgentAttribute(name="planner")
+    attr = AgentInfo(name="planner")
     result = attr.to_dict()
     assert result == {"name": "planner"}
     assert "description" not in result
     assert "version" not in result
-    assert "custom_inputs_schema" not in result
-    assert "custom_outputs_schema" not in result
+    assert "metadata" not in result
     assert "tags" not in result
 
 
@@ -94,11 +99,13 @@ def test_normalize_schema_invalid_type():
 
 
 def test_to_dict_with_pydantic_schemas():
-    attr = AgentAttribute(
+    attr = AgentInfo(
         name="planner",
-        custom_inputs_schema=SampleInputs,
-        custom_outputs_schema=SampleOutputs,
+        metadata={
+            "custom_inputs_schema": SampleInputs,
+            "custom_outputs_schema": SampleOutputs,
+        },
     )
     result = attr.to_dict()
-    assert result["custom_inputs_schema"] == SampleInputs.model_json_schema()
-    assert result["custom_outputs_schema"] == SampleOutputs.model_json_schema()
+    assert result["metadata"]["custom_inputs_schema"] == SampleInputs.model_json_schema()
+    assert result["metadata"]["custom_outputs_schema"] == SampleOutputs.model_json_schema()

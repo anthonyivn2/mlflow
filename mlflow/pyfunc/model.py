@@ -53,7 +53,7 @@ from mlflow.types.agent import (
     ChatAgentResponse,
     ChatContext,
 )
-from mlflow.types.agent_attribute import AgentAttribute
+from mlflow.types.agent_attribute import AgentInfo
 from mlflow.types.llm import (
     ChatCompletionChunk,
     ChatCompletionResponse,
@@ -851,7 +851,7 @@ class ResponsesAgent(PythonModel, metaclass=ABCMeta):
     See https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro for more details.
     """
 
-    attribute: ClassVar[AgentAttribute | None] = None
+    attribute: ClassVar[AgentInfo | None] = None
 
     _skip_type_hint_validation = True
 
@@ -864,9 +864,9 @@ class ResponsesAgent(PythonModel, metaclass=ABCMeta):
     def __init_subclass__(cls, **kwargs) -> None:
         super().__init_subclass__(**kwargs)
 
-        # Detect or create default AgentAttribute
+        # Detect or create default AgentInfo
         if not hasattr(cls, "attribute") or cls.attribute is None:
-            cls.attribute = AgentAttribute(name=cls.__name__)
+            cls.attribute = AgentInfo(name=cls.__name__)
         elif getattr(cls.attribute, "name", None) is None:
             cls.attribute.name = cls.__name__
 

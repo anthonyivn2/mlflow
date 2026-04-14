@@ -1490,30 +1490,31 @@ def test_cc_stream_to_responses_stream_handles_multiple_invalid_chunks():
     assert events[2].type == "response.output_item.done"
 
 
-# --- AgentAttribute integration tests ---
+# --- AgentInfo integration tests ---
 
 
 def test_responses_agent_default_attribute():
-    """Subclass with no attribute gets a default AgentAttribute with name = class name."""
-    from mlflow.types.agent_attribute import AgentAttribute
+    """Subclass with no attribute gets a default AgentInfo with name = class name."""
+    from mlflow.types.agent_attribute import AgentInfo
 
     class NoAttributeAgent(ResponsesAgent):
         def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
             return ResponsesAgentResponse(**get_mock_response(request))
 
-    assert isinstance(NoAttributeAgent.attribute, AgentAttribute)
+    assert isinstance(NoAttributeAgent.attribute, AgentInfo)
     assert NoAttributeAgent.attribute.name == "NoAttributeAgent"
 
 
 def test_responses_agent_custom_attribute():
-    """Subclass with explicit AgentAttribute preserves all fields."""
-    from mlflow.types.agent_attribute import AgentAttribute
+    """Subclass with explicit AgentInfo preserves all fields."""
+    from mlflow.types.agent_attribute import AgentInfo
 
     class CustomAgent(ResponsesAgent):
-        attribute = AgentAttribute(
+        attribute = AgentInfo(
             name="custom-agent",
             description="A custom test agent",
             version="1.0",
+            metadata={"custom_inputs_schema": {"type": "object"}},
             tags={"team": "ml"},
         )
 
@@ -1523,15 +1524,16 @@ def test_responses_agent_custom_attribute():
     assert CustomAgent.attribute.name == "custom-agent"
     assert CustomAgent.attribute.description == "A custom test agent"
     assert CustomAgent.attribute.version == "1.0"
+    assert CustomAgent.attribute.metadata == {"custom_inputs_schema": {"type": "object"}}
     assert CustomAgent.attribute.tags == {"team": "ml"}
 
 
 def test_responses_agent_attribute_name_defaults_to_class_name():
-    """AgentAttribute with no name gets name defaulted to the class name."""
-    from mlflow.types.agent_attribute import AgentAttribute
+    """AgentInfo with no name gets name defaulted to the class name."""
+    from mlflow.types.agent_attribute import AgentInfo
 
     class NamelessAgent(ResponsesAgent):
-        attribute = AgentAttribute(description="An agent without a name")
+        attribute = AgentInfo(description="An agent without a name")
 
         def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
             return ResponsesAgentResponse(**get_mock_response(request))
